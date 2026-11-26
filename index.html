@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VÕ HOÀI NAM | CTV Key Panel & Kho Key Bản Quyền</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js cho nền hạt 3D chiều sâu -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            background-color: #050913;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.44;
+        }
+
+        .panel-card {
+            background: rgba(11, 18, 35, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.16);
+            box-shadow: 0 14px 36px -18px rgba(2, 132, 199, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .panel-card:hover {
+            border-color: rgba(56, 189, 248, 0.28);
+        }
+
+        .tier-tile {
+            background: rgba(8, 14, 28, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            transition: all 0.18s ease;
+        }
+
+        .tier-tile:hover {
+            border-color: rgba(56, 189, 248, 0.55);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -12px rgba(56, 189, 248, 0.45);
+        }
+
+        .tier-tile.is-active {
+            background: linear-gradient(160deg, rgba(17, 36, 78, 0.98), rgba(8, 22, 48, 0.96));
+            border: 1.5px solid #38bdf8;
+            box-shadow: 0 0 26px rgba(56, 189, 248, 0.32);
+            transform: translateY(-2px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050913;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-sky-500 selection:text-slate-950">
+
+    <!-- Nền 3D hạt sáng -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Thông báo Toast -->
+    <div id="toast-container" class="fixed top-20 right-4 z-[95] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- ======================================================================
+         THANH ĐIỀU HƯỚNG TRÊN CÙNG (CTV PANEL + ĐĂNG NHẬP / ADMIN)
+         ====================================================================== -->
+    <header class="sticky top-0 z-40 panel-card border-b border-sky-400/15 rounded-none">
+        <div class="max-w-3xl mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-2">
+            <!-- Chạm 5 lần hoặc nhấn Ctrl+Shift+A để mở khung quản trị Admin -->
+            <button type="button" onclick="handleBrandTap()" class="flex items-center gap-2.5 text-left cursor-pointer select-none min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 via-sky-400 to-blue-600 flex items-center justify-center text-slate-950 font-extrabold shadow-md shadow-sky-500/25 shrink-0">
+                    <i class="fa-solid fa-key text-sm"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-extrabold text-sm sm:text-base text-white tracking-tight truncate">VÕ HOÀI NAM</span>
+                        <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-extrabold text-[10px] uppercase tracking-wider shrink-0">CTV PRO</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold tracking-wider text-slate-400 uppercase truncate">
+                        <span>Kho Key Bản Quyền</span>
+                        <span id="sync-status-pill" class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono text-[9px] normal-case">LocalStorage</span>
+                    </div>
+                </div>
+            </button>
+
+            <div id="header-right-controls" class="flex items-center gap-2 shrink-0">
+                <!-- Render động bằng JS -->
+            </div>
+        </div>
+    </header>
+
+    <!-- ======================================================================
+         KHUNG CHÍNH CỦA ỨNG DỤNG
+         ====================================================================== -->
+    <main class="max-w-3xl mx-auto px-3 sm:px-5 pt-4 pb-24 space-y-4">
+
+        <!-- 4 THẺ THỐNG KÊ TÀI KHOẢN -->
+        <section class="grid grid-cols-2 gap-3">
+            <div class="panel-card rounded-2xl p-4">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Số dư khả dụng</div>
+                <div id="stat-balance" class="font-mono text-xl sm:text-2xl font-extrabold text-emerald-400 mt-1.5">0 đ</div>
+            </div>
+
+            <div class="panel-card rounded-2xl p-4">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tổng tiền đã mua</div>
+                <div id="stat-spent" class="font-mono text-xl sm:text-2xl font-extrabold text-amber-400 mt-1.5">0 đ</div>
+            </div>
+
+            <div class="panel-card rounded-2xl p-4">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tổng key đã lấy</div>
+                <div id="stat-keys-count" class="font-mono text-xl sm:text-2xl font-extrabold text-sky-400 mt-1.5">0</div>
+            </div>
+
+            <div class="panel-card rounded-2xl p-4">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tổng tiền đã nạp</div>
+                <div id="stat-deposited" class="font-mono text-xl sm:text-2xl font-extrabold text-indigo-400 mt-1.5">0 đ</div>
+            </div>
+        </section>
+
+        <!-- THANH TAB ĐIỀU HƯỚNG -->
+        <nav class="panel-card rounded-2xl p-2 flex items-center gap-1.5 overflow-x-auto">
+            <button type="button" id="tab-btn-buy" onclick="switchMainTab('buy')" class="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-600/30">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span>Mua key mới</span>
+            </button>
+            <button type="button" id="tab-btn-vault" onclick="switchMainTab('vault')" class="flex-1 min-w-[105px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-300 hover:bg-white/5">
+                <i class="fa-solid fa-clipboard-list text-amber-400"></i>
+                <span>Key của tôi</span>
+            </button>
+            <button type="button" id="tab-btn-deposit" onclick="switchMainTab('deposit')" class="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-300 hover:bg-white/5">
+                <i class="fa-solid fa-credit-card text-emerald-400"></i>
+                <span>Nạp tiền</span>
+            </button>
+            <button type="button" id="tab-btn-history" onclick="switchMainTab('history')" class="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-300 hover:bg-white/5">
+                <i class="fa-solid fa-clock-rotate-left text-sky-400"></i>
+                <span>Lịch sử</span>
+            </button>
+        </nav>
+
+        <!-- ==================================================================
+             TAB 1: MUA KEY MỚI
+             ================================================================== -->
+        <section id="tab-panel-buy" class="space-y-4">
+            <!-- Nguồn kho & lưu trữ -->
+            <div class="panel-card rounded-2xl p-4 space-y-2.5">
+                <div class="w-full p-3.5 rounded-xl bg-blue-950/65 border border-sky-400/40 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-3">
+                        <span class="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center text-base shrink-0">
+                            <i class="fa-solid fa-bolt"></i>
+                        </span>
+                        <div>
+                            <div class="text-[11px] font-bold text-sky-300 uppercase tracking-wider">Kho key của Admin</div>
+                            <div class="font-bold text-xs sm:text-sm text-white">Lấy key thủ công do Admin nhập • Trừ số dư & trừ kho</div>
+                        </div>
+                    </div>
+                    <span id="total-stock-badge" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 font-mono text-xs font-bold shrink-0">
+                        0 key kho
+                    </span>
+                </div>
+
+                <div class="w-full p-3.5 rounded-xl bg-slate-950/75 border border-white/10 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-3">
+                        <span class="w-9 h-9 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-base shrink-0">
+                            <i class="fa-solid fa-database"></i>
+                        </span>
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Chính sách lưu trữ</div>
+                            <div class="font-bold text-xs sm:text-sm text-slate-200">Key lưu kho cá nhân 5 ngày • Tài khoản chỉ xóa khi Admin xóa</div>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-amber-300 shrink-0">5 ngày</span>
+                </div>
+            </div>
+
+            <!-- Khung chọn gói key, số lượng, tên khách & lấy key -->
+            <div class="panel-card rounded-2xl p-4 sm:p-5 space-y-5">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-key"></i>
+                        </span>
+                        <div>
+                            <h2 class="font-extrabold text-base sm:text-lg text-white leading-tight">Lấy mã key từ kho Admin</h2>
+                            <p class="text-[11px] text-slate-400">Không đủ số dư hoặc hết kho sẽ không thể lấy key</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="openAuthModal('login')" id="buy-card-account-pill" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-sky-300 cursor-pointer shrink-0">
+                        Đăng nhập / Tạo TK
+                    </button>
+                </div>
+
+                <!-- 1. Chọn gói thời hạn key (1 Giờ, 1 Ngày, 1 Tuần, 1 Tháng) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-200 mb-2.5">1. Chọn gói key</label>
+                    <div id="duration-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <!-- Render động bằng JS -->
+                    </div>
+                </div>
+
+                <!-- 2 & 3. Số lượng key + Tên khách -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label for="buy-qty-input" class="block text-xs font-bold text-slate-200 mb-1.5">2. Số lượng key</label>
+                        <input type="number" id="buy-qty-input" min="1" max="100" value="1" oninput="updateBuySummary()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-white/15 focus:border-sky-400 outline-none text-white font-mono text-sm">
+                    </div>
+
+                    <div>
+                        <label for="buy-customer-input" class="block text-xs font-bold text-slate-200 mb-1.5">3. Tên khách / ghi chú</label>
+                        <input type="text" id="buy-customer-input" maxlength="40" placeholder="VD: KHACH LE" oninput="updateBuySummary()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-white/15 focus:border-sky-400 outline-none text-white text-sm uppercase">
+                    </div>
+                </div>
+
+                <!-- Tóm tắt thanh toán -->
+                <div class="rounded-xl bg-slate-950/95 border border-white/10 p-4 space-y-2.5 text-xs sm:text-sm">
+                    <div class="text-slate-300 leading-relaxed">
+                        <strong id="summary-qty-text" class="text-white">1</strong> key <strong id="summary-pkg-text" class="text-sky-300">1 Giờ</strong> • Kho Admin còn <span id="summary-stock-text" class="font-mono text-emerald-400">0</span> key • Lưu trữ <strong class="text-amber-300">5 ngày</strong>.
+                    </div>
+                    <div class="flex items-center justify-between pt-2 border-t border-white/10">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tổng tiền thanh toán</span>
+                        <span id="summary-total-price" class="font-mono text-lg sm:text-xl font-extrabold text-sky-400">600 đ</span>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-400 flex flex-wrap items-center justify-between gap-2">
+                        <span>Số dư của bạn: <strong id="summary-user-balance" class="font-mono text-emerald-400">0 đ</strong></span>
+                        <span id="summary-shortage-badge" class="text-rose-400 font-bold"></span>
+                    </div>
+                </div>
+
+                <!-- Nút lấy key -->
+                <button type="button" id="main-purchase-btn" onclick="handleBuyKeysFromPanel()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-sm shadow-lg shadow-sky-600/25 transition-all cursor-pointer flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span id="main-purchase-btn-text">Lấy Key Ngay</span>
+                </button>
+            </div>
+
+            <!-- Danh sách key đã lấy gần đây -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between px-1">
+                    <h3 class="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-receipt text-sky-400"></i>
+                        <span>Key Đã Lấy Gần Đây (Lưu 5 Ngày)</span>
+                    </h3>
+                    <button type="button" onclick="switchMainTab('vault')" class="text-xs font-bold text-sky-400 hover:underline cursor-pointer">
+                        Xem tất cả kho key &rarr;
+                    </button>
+                </div>
+                <div id="recent-orders-list" class="space-y-2.5">
+                    <!-- Render động bằng JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 2: KEY CỦA TÔI (KHO KEY LƯU 5 NGÀY)
+             ================================================================== -->
+        <section id="tab-panel-vault" class="hidden panel-card rounded-2xl p-4 sm:p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                <div>
+                    <h2 class="font-extrabold text-base sm:text-lg text-white">Key của tôi (Lưu trữ 5 ngày)</h2>
+                    <p class="text-xs text-slate-400">Key được giữ trong kho 5 ngày kể từ lúc lấy. Tài khoản chỉ xóa khi Admin chủ động xóa.</p>
+                </div>
+                <span id="vault-total-badge" class="px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono text-xs font-bold self-start">
+                    0 key
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div class="sm:col-span-2 relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="vault-search-input" oninput="renderVaultTab()" placeholder="Tìm mã key hoặc tên khách..." class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-white text-xs sm:text-sm">
+                </div>
+                <select id="vault-filter-select" onchange="renderVaultTab()" class="px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-slate-200 text-xs sm:text-sm">
+                    <option value="ALL">Tất cả gói</option>
+                    <option value="1h">1 Giờ (600đ)</option>
+                    <option value="1d">1 Ngày (10.000đ)</option>
+                    <option value="7d">1 Tuần / 7 Ngày (60.000đ)</option>
+                    <option value="30d">1 Tháng / 30 Ngày (250.000đ)</option>
+                </select>
+            </div>
+
+            <div id="vault-keys-list" class="space-y-3">
+                <!-- Render động bằng JS -->
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 3: NẠP TIỀN (TỐI THIỂU 5.000Đ - QR PHAN CHI VY + ZALOPAY & TIKTOK)
+             ================================================================== -->
+        <section id="tab-panel-deposit" class="hidden panel-card rounded-2xl p-4 sm:p-6 space-y-5">
+            <div class="text-center space-y-1">
+                <span class="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-extrabold">
+                    NẠP TỐI THIỂU 5.000 ĐỒNG (5K)
+                </span>
+                <h2 class="font-extrabold text-xl text-white pt-1">QR Nhận Tiền • PHAN CHI VY</h2>
+                <p class="text-xs sm:text-sm text-slate-400">
+                    Chuyển khoản tối thiểu <strong class="text-amber-300">5.000đ</strong> kèm tên tài khoản rồi báo Admin cộng số dư.
+                </p>
+            </div>
+
+            <div class="bg-white p-2.5 rounded-2xl w-48 h-60 mx-auto shadow-xl shadow-sky-600/20 flex items-center justify-center overflow-hidden">
+                <img id="deposit-qr-img" src="./admin-qr.jpg" alt="QR Nhận Tiền Admin PHAN CHI VY" class="w-full h-full object-contain rounded-xl" onerror="handleAdminQrFallback(this)">
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-4 border border-white/10 space-y-2 text-xs sm:text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Chủ tài khoản QR:</span>
+                    <span class="font-bold text-white">PHAN CHI VY</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Nạp tối thiểu:</span>
+                    <span class="font-mono font-bold text-amber-300">5.000 VNĐ</span>
+                </div>
+                <div class="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
+                    <span class="text-slate-400">Nội dung chuyển:</span>
+                    <div class="flex items-center gap-2">
+                        <code id="deposit-memo-code" class="font-mono font-bold text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded">NAP VHN</code>
+                        <button type="button" onclick="copyDepositMemo()" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold cursor-pointer">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liên kết 1 chạm mở tab mới -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <a href="https://social.zalopay.vn/mt/0974165214" target="_blank" rel="noopener noreferrer" class="p-3.5 rounded-xl bg-sky-600/20 hover:bg-sky-600/35 border border-sky-400/45 text-sky-200 font-bold text-xs sm:text-sm flex items-center justify-between transition-all">
+                    <span class="flex items-center gap-2.5">
+                        <i class="fa-solid fa-wallet text-sky-400 text-base"></i>
+                        <span>ZaloPay: 0974165214</span>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                </a>
+
+                <a href="https://www.tiktok.com/@phanchivyxinchao" target="_blank" rel="noopener noreferrer" class="p-3.5 rounded-xl bg-pink-600/20 hover:bg-pink-600/35 border border-pink-400/45 text-pink-200 font-bold text-xs sm:text-sm flex items-center justify-between transition-all">
+                    <span class="flex items-center gap-2.5">
+                        <i class="fa-brands fa-tiktok text-pink-400 text-base"></i>
+                        <span>TikTok: @phanchivyxinchao</span>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                </a>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             TAB 4: LỊCH SỬ BIẾN ĐỘNG SỐ DƯ & LẤY KEY
+             ================================================================== -->
+        <section id="tab-panel-history" class="hidden panel-card rounded-2xl p-4 sm:p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10">
+                <div>
+                    <h2 class="font-extrabold text-base sm:text-lg text-white">Lịch sử giao dịch & số dư</h2>
+                    <p class="text-xs text-slate-400">Ghi nhận các lần nạp/trừ số dư và lấy key từ kho Admin.</p>
+                </div>
+            </div>
+            <div id="history-logs-list" class="space-y-2.5">
+                <!-- Render động bằng JS -->
+            </div>
+        </section>
+
+        <!-- Chân trang liên kết nhanh -->
+        <footer class="panel-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="https://social.zalopay.vn/mt/0974165214" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline font-semibold">
+                    ZaloPay 0974165214
+                </a>
+                <span>•</span>
+                <a href="https://www.tiktok.com/@phanchivyxinchao" target="_blank" rel="noopener noreferrer" class="text-pink-400 hover:underline font-semibold">
+                    TikTok @phanchivyxinchao
+                </a>
+            </div>
+            <button type="button" onclick="openAdminModal()" class="text-amber-300 hover:underline font-bold cursor-pointer">
+                <i class="fa-solid fa-shield-halved mr-1"></i> Quản Trị Admin
+            </button>
+        </footer>
+    </main>
+
+    <!-- ======================================================================
+         MODAL 1: TẠO TÀI KHOẢN (CHỈ TÊN TK & MẬT KHẨU) & ĐĂNG NHẬP
+         ====================================================================== -->
+    <div id="auth-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+        <div class="panel-card rounded-2xl max-w-md w-full p-5 sm:p-6 border border-sky-400/35 relative">
+            <button type="button" onclick="closeAuthModal()" class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex p-1 rounded-xl bg-slate-950 border border-white/10 mb-5">
+                <button type="button" id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold bg-blue-600 text-white cursor-pointer">
+                    Tạo Tài Khoản
+                </button>
+                <button type="button" id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white cursor-pointer">
+                    Đăng Nhập
+                </button>
+            </div>
+
+            <!-- Form tạo tài khoản chỉ gồm Tên tài khoản & Mật khẩu -->
+            <form id="register-form" onsubmit="handleRegister(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Tên tài khoản *</label>
+                    <input type="text" id="reg-username" required minlength="2" maxlength="30" placeholder="Nhập tên tài khoản..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-white text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Mật khẩu *</label>
+                    <input type="password" id="reg-password" required minlength="3" placeholder="Nhập mật khẩu..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-white text-sm">
+                </div>
+                <p class="text-[11px] text-slate-400">
+                    Tài khoản vĩnh viễn, không tự xóa trừ khi Admin xóa. Key đã lấy lưu trong kho cá nhân 5 ngày.
+                </p>
+                <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm cursor-pointer">
+                    Tạo Tài Khoản Ngay
+                </button>
+            </form>
+
+            <!-- Form đăng nhập -->
+            <form id="login-form" onsubmit="handleLogin(event)" class="hidden space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Tên tài khoản *</label>
+                    <input type="text" id="login-username" required placeholder="Nhập tên tài khoản..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-white text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Mật khẩu *</label>
+                    <input type="password" id="login-password" required placeholder="Nhập mật khẩu..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-sky-400 outline-none text-white text-sm">
+                </div>
+                <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm cursor-pointer">
+                    Đăng Nhập
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MODAL 2: BẢNG QUẢN TRỊ ADMIN (KHÔNG LỘ TÀI KHOẢN / MẬT KHẨU TRÊN UI)
+         ====================================================================== -->
+    <div id="admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="panel-card rounded-2xl max-w-4xl w-full p-5 sm:p-7 border border-amber-400/35 relative max-h-[92vh] overflow-y-auto">
+            <button type="button" onclick="closeAdminModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Form đăng nhập Admin: hoàn toàn không hiển thị thông tin đăng nhập/gợi ý/nút điền nhanh -->
+            <div id="admin-login-view" class="max-w-sm mx-auto py-6 text-center">
+                <div class="w-12 h-12 rounded-xl bg-amber-400/15 border border-amber-400/40 text-amber-300 flex items-center justify-center mx-auto mb-3 text-xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 class="font-extrabold text-xl text-white">Quản Trị Hệ Thống</h3>
+                <p class="text-xs text-slate-400 mt-1 mb-5">Xác thực quyền quản trị viên</p>
+
+                <form onsubmit="handleAdminLogin(event)" class="space-y-3 text-left">
+                    <div>
+                        <label for="admin-user-input" class="block text-xs font-bold text-slate-300 mb-1">Tài khoản quản trị</label>
+                        <input type="text" id="admin-user-input" name="vhn_adm_user_field" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="Nhập tài khoản..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-amber-400 outline-none text-white font-mono text-sm">
+                    </div>
+                    <div>
+                        <label for="admin-pass-input" class="block text-xs font-bold text-slate-300 mb-1">Mật khẩu quản trị</label>
+                        <div class="relative">
+                            <input type="password" id="admin-pass-input" name="vhn_adm_pass_field" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="Nhập mật khẩu..." class="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-950 border border-white/15 focus:border-amber-400 outline-none text-white font-mono text-sm">
+                            <button type="button" id="toggle-admin-pass-btn" onclick="toggleAdminPasswordVisibility()" aria-label="Hiện hoặc ẩn mật khẩu" class="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-white/5 flex items-center justify-center cursor-pointer transition-colors">
+                                <i id="toggle-admin-pass-icon" class="fa-regular fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" id="admin-login-submit-btn" class="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm cursor-pointer">
+                        Đăng Nhập Quản Trị
+                    </button>
+                </form>
+            </div>
+
+            <!-- Bảng điều khiển Admin sau khi đăng nhập -->
+            <div id="admin-dashboard-view" class="hidden space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300">Admin Dashboard • CTV Key Panel</span>
+                        <h3 class="font-extrabold text-xl text-white">Quản Lý Kho Key, Kiểm Tra Nạp, Thành Viên & KV Sync</h3>
+                    </div>
+                    <button type="button" onclick="logoutAdminSession()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 cursor-pointer">
+                        Khóa phiên Admin
+                    </button>
+                </div>
+
+                <!-- 1. Tổng quan kho key (tồn kho chỉ tăng khi thêm key thủ công, không tự tạo key) -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-white/10 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-bold text-sm text-sky-300 flex items-center gap-2">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                            <span>1. Kho Key Của Admin (Chỉ Nhập Key Có Sẵn, Không Tự Sinh Key)</span>
+                        </div>
+                        <span class="text-[11px] text-amber-300 font-semibold">Số key khả dụng = số key đã thêm thủ công</span>
+                    </div>
+                    <div id="admin-stock-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <!-- Render bằng JS -->
+                    </div>
+                </div>
+
+                <!-- 2. Thêm key thủ công vào kho (bắt buộc nhập danh sách key thật, không tự tạo key) -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-white/10 space-y-3">
+                    <div class="font-bold text-sm text-amber-300 flex items-center gap-2">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>2. Thêm Key Thủ Công Vào Kho (Khớp Chính Xác Số Key Đã Nhập)</span>
+                    </div>
+                    <form onsubmit="handleAdminManualAddKeys(event)" class="space-y-2.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <select id="manual-key-pkg-select" class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                                <option value="1h">1 Giờ (600đ)</option>
+                                <option value="1d">1 Ngày (10.000đ)</option>
+                                <option value="7d">1 Tuần / 7 Ngày (60.000đ)</option>
+                                <option value="30d">1 Tháng / 30 Ngày (250.000đ)</option>
+                            </select>
+                            <select id="manual-key-target-mode" onchange="toggleManualTargetMember()" class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                                <option value="STOCK">Nạp vào Kho Gói</option>
+                                <option value="MEMBER">Cấp trực tiếp Thành viên (5 ngày)</option>
+                            </select>
+                            <select id="manual-key-member-select" class="hidden px-3 py-2 rounded-xl bg-slate-900 border border-sky-500/40 text-sky-300 text-xs">
+                                <!-- Render bằng JS -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <textarea id="manual-keys-textarea" rows="3" required placeholder="Dán hoặc nhập từng mã key có sẵn (mỗi dòng hoặc phân cách bằng dấu phẩy). Hệ thống không tự tạo key và kiểm tra số key khả dụng đúng bằng số key đã thêm." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 focus:border-amber-400 outline-none text-white font-mono text-xs"></textarea>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                            <span id="manual-key-parsed-preview" class="font-mono text-sky-300">Đã nhận diện: 0 key hợp lệ</span>
+                            <button type="submit" class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs cursor-pointer">
+                                Xác Nhận Thêm Key
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 3. Cộng / Trừ (+/-) số dư thành viên -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-white/10 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                            <i class="fa-solid fa-coins"></i>
+                            <span>3. Cộng / Trừ (+/-) Số Dư Tài Khoản (Nạp Tối Thiểu 5.000đ)</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 text-[11px]">
+                            <button type="button" onclick="quickBalDelta(5000)" class="px-2 py-1 rounded bg-emerald-500/15 text-emerald-300 font-mono font-bold cursor-pointer">+5.000đ</button>
+                            <button type="button" onclick="quickBalDelta(10000)" class="px-2 py-1 rounded bg-emerald-500/15 text-emerald-300 font-mono font-bold cursor-pointer">+10.000đ</button>
+                            <button type="button" onclick="quickBalDelta(60000)" class="px-2 py-1 rounded bg-emerald-500/15 text-emerald-300 font-mono font-bold cursor-pointer">+60.000đ</button>
+                            <button type="button" onclick="quickBalDelta(-5000)" class="px-2 py-1 rounded bg-rose-500/15 text-rose-300 font-mono font-bold cursor-pointer">-5.000đ</button>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleAdminAdjustBalance(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <select id="bal-member-select" class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-sky-300 font-semibold text-xs">
+                            <!-- Render bằng JS -->
+                        </select>
+                        <input type="number" step="100" id="bal-delta-input" required placeholder="VD: 5000 hoặc -5000" class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white font-mono text-xs">
+                        <input type="text" id="bal-note-input" placeholder="Ghi chú nạp / trừ tiền..." class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                        <button type="submit" class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs cursor-pointer">
+                            Cập Nhật Số Dư
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 4. Kiểm tra toàn bộ lịch sử nạp tiền (All Nạp) + Liên kết ZaloPay 0974165214 -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-emerald-500/25 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-bold text-sm text-emerald-300 flex items-center gap-2">
+                            <i class="fa-solid fa-money-check-dollar"></i>
+                            <span>4. Kiểm Tra All Nạp (Toàn Bộ Lịch Sử Nạp Tiền)</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span id="admin-total-deposits-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 font-mono text-xs font-bold">
+                                Tổng nạp: 0 đ
+                            </span>
+                            <a href="https://social.zalopay.vn/mt/0974165214" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 font-bold text-xs inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-wallet text-sky-400"></i>
+                                <span>ZaloPay: 0974165214</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input type="text" id="admin-deposit-search" oninput="renderAdminDepositsAudit()" placeholder="Lọc theo tên tài khoản hoặc nội dung nạp..." class="px-3 py-1.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                        <input type="number" id="admin-deposit-min-filter" oninput="renderAdminDepositsAudit()" placeholder="Lọc số tiền nạp tối thiểu (VD: 5000)..." class="px-3 py-1.5 rounded-xl bg-slate-900 border border-white/15 text-white font-mono text-xs">
+                    </div>
+
+                    <div class="overflow-x-auto max-h-56 overflow-y-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-white/10 text-slate-400">
+                                    <th class="py-2 px-2">Thời Gian</th>
+                                    <th class="py-2 px-2">Tài Khoản</th>
+                                    <th class="py-2 px-2">Số Tiền Nạp</th>
+                                    <th class="py-2 px-2">Số Dư Sau</th>
+                                    <th class="py-2 px-2">Ghi Chú / Kênh</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-deposits-tbody" class="divide-y divide-white/5">
+                                <!-- Render bằng JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. Tạo tài khoản thành viên, tìm kiếm tên, xem mật khẩu & xóa tài khoản -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-white/10 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="font-bold text-sm text-purple-300 flex items-center gap-2">
+                            <i class="fa-solid fa-users"></i>
+                            <span>5. Tạo Tài Khoản, Search Tên, Xem & Xóa Thành Viên</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                            <input type="text" id="admin-search-member" oninput="renderAdminMembersTable()" placeholder="Search tên tài khoản..." class="px-3 py-1.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs flex-1 sm:w-48">
+                            <button type="button" onclick="exportAdminSnapshot()" class="px-2.5 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/30 text-sky-300 font-bold text-xs cursor-pointer">
+                                Xuất JSON
+                            </button>
+                            <button type="button" onclick="resetAdminDefaultData()" class="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 font-bold text-xs cursor-pointer">
+                                Reset mặc định
+                            </button>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleAdminCreateMember(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <input type="text" id="admin-create-username" required minlength="2" maxlength="30" placeholder="Tên tài khoản mới..." class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                        <input type="text" id="admin-create-password" required minlength="3" placeholder="Mật khẩu mới..." class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs">
+                        <input type="number" id="admin-create-balance" min="0" value="0" placeholder="Số dư ban đầu (đ)..." class="px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-amber-300 font-mono text-xs">
+                        <button type="submit" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs cursor-pointer">
+                            Tạo Tài Khoản
+                        </button>
+                    </form>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-white/10 text-slate-400">
+                                    <th class="py-2 px-2">Tài Khoản</th>
+                                    <th class="py-2 px-2">Mật Khẩu</th>
+                                    <th class="py-2 px-2">Số Dư</th>
+                                    <th class="py-2 px-2">Key (5 Ngày)</th>
+                                    <th class="py-2 px-2 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-members-tbody" class="divide-y divide-white/5">
+                                <!-- Render bằng JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="admin-member-detail" class="hidden p-3.5 rounded-xl bg-slate-900 border border-sky-500/30 text-xs space-y-2">
+                        <!-- Chi tiết tài khoản khi bấm Xem -->
+                    </div>
+                </div>
+
+                <!-- 6. Kết nối & đồng bộ Cloudflare Worker KV -->
+                <div class="bg-slate-950/85 rounded-xl p-4 border border-sky-500/25 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-bold text-sm text-sky-300 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>6. Đồng Bộ Cloudflare Worker KV (Tự Fallback localStorage)</span>
+                        </div>
+                        <span id="worker-kv-badge" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono text-[11px]">
+                            Chưa cấu hình URL
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <input type="url" id="worker-endpoint-input" placeholder="https://vohoainam-key-api.<subdomain>.workers.dev" class="sm:col-span-6 px-3 py-2 rounded-xl bg-slate-900 border border-white/15 focus:border-sky-400 outline-none text-white font-mono text-xs">
+                        <button type="button" onclick="saveWorkerEndpointConfig()" class="sm:col-span-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer">
+                            Lưu URL
+                        </button>
+                        <button type="button" onclick="testWorkerHealth()" class="sm:col-span-2 px-3 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/40 text-cyan-200 font-bold text-xs cursor-pointer">
+                            Kiểm tra /health
+                        </button>
+                        <button type="button" onclick="pullStateFromWorker(true)" class="sm:col-span-2 px-3 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/40 text-indigo-200 font-bold text-xs cursor-pointer">
+                            Tải KV về
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="worker-auto-sync-checkbox" onchange="toggleAutoWorkerSync(this.checked)" class="rounded border-white/20 bg-slate-900 text-sky-500">
+                            <span>Tự động đẩy dữ liệu lên Worker KV khi có thay đổi</span>
+                        </label>
+                        <button type="button" onclick="pushStateToWorker(true)" class="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs cursor-pointer">
+                            Đẩy Dữ Liệu Lên KV Ngay
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         LOGIC ỨNG DỤNG
+         ====================================================================== -->
+    <script>
+        // Thông tin đăng nhập Admin cố định (không hiển thị trên giao diện)
+        const ADMIN_USERNAME = 'Chivy';
+        const ADMIN_PASSWORD = ['Vy@2609', '2014'].join('');
+
+        // Hạn mức nạp tối thiểu 5.000đ và thời gian lưu trữ Key 5 ngày (tính từ thời điểm lấy/cấp key)
+        const MIN_DEPOSIT_VND = 5000;
+        const KEY_STORAGE_DAYS = 5;
+        const KEY_STORAGE_MS = KEY_STORAGE_DAYS * 24 * 60 * 60 * 1000;
+
+        // Bảng giá cố định 4 gói: 1h = 600đ, 1d = 10.000đ, 7d = 60.000đ, 30d = 250.000đ
+        const PACKAGE_PRICES = {
+            '1h': 600,
+            '1d': 10000,
+            '7d': 60000,
+            '30d': 250000
+        };
+
+        // Kho khởi tạo lưu mảng mã key có sẵn (tồn kho = số phần tử mã key thực tế, không tự tạo key)
+        const DEFAULT_PACKAGES = [
+            {
+                id: '1h',
+                shortLabel: '1 Giờ',
+                fullName: 'Key 1 Giờ (1h)',
+                price: 600,
+                keys: ['VHN-1H-A101', 'VHN-1H-A102', 'VHN-1H-A103']
+            },
+            {
+                id: '1d',
+                shortLabel: '1 Ngày',
+                fullName: 'Key 1 Ngày (1d)',
+                price: 10000,
+                keys: ['VHN-1D-B201', 'VHN-1D-B202']
+            },
+            {
+                id: '7d',
+                shortLabel: '1 Tuần',
+                fullName: 'Key 1 Tuần / 7 Ngày (7d)',
+                price: 60000,
+                keys: ['VHN-7D-C301']
+            },
+            {
+                id: '30d',
+                shortLabel: '1 Tháng',
+                fullName: 'Key 1 Tháng / 30 Ngày (30d)',
+                price: 250000,
+                keys: ['VHN-30D-D401']
+            }
+        ];
+
+        const STORAGE_KEYS = {
+            PACKAGES: 'vhn_ctv_packages_v4',
+            USERS: 'vhn_ctv_users_v4',
+            SESSION: 'vhn_ctv_session_v4',
+            WORKER_URL: 'vhn_ctv_worker_url_v1',
+            WORKER_AUTO_SYNC: 'vhn_ctv_worker_auto_sync_v1'
+        };
+
+        let selectedPkgId = '1h';
+        let isAdminAuthenticated = false;
+        let activeAdminInspectUser = null;
+        let revealedMemberPasswords = {};
+        let brandTapCount = 0;
+        let brandTapTimer = null;
+        let workerSyncTimer = null;
+
+        // Chuẩn hóa tài khoản và mật khẩu Admin trước khi đối chiếu (giữ nguyên chữ hoa/thường của mật khẩu)
+        function normalizeAdminInput(rawUser, rawPass) {
+            const cleanUser = String(rawUser ?? '')
+                .normalize('NFC')
+                .replace(/[\s\u200B-\u200D\uFEFF]+/g, '');
+            const cleanPass = String(rawPass ?? '')
+                .normalize('NFC')
+                .replace(/[\s\u200B-\u200D\uFEFF]+/g, '');
+            return { user: cleanUser, pass: cleanPass };
+        }
+
+        // Ảnh dự phòng nếu file ./admin-qr.jpg chưa có trên máy/hosting
+        function handleAdminQrFallback(imgEl) {
+            if (imgEl.dataset.qrFallbackApplied) return;
+            imgEl.dataset.qrFallbackApplied = '1';
+            try {
+                const c = document.createElement('canvas');
+                c.width = 240;
+                c.height = 300;
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, c.width, c.height);
+                ctx.strokeStyle = '#16a34a';
+                ctx.lineWidth = 8;
+                ctx.strokeRect(10, 10, c.width - 20, c.height - 20);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('NẠP TỐI THIỂU 5.000Đ', c.width / 2, 100);
+                ctx.fillStyle = '#16a34a';
+                ctx.font = 'bold 20px sans-serif';
+                ctx.fillText('PHAN CHI VY', c.width / 2, 136);
+                ctx.fillStyle = '#0284c7';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText('ZaloPay: 0974165214', c.width / 2, 174);
+                ctx.fillStyle = '#db2777';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText('TikTok: @phanchivyxinchao', c.width / 2, 198);
+                imgEl.src = c.toDataURL('image/png');
+            } catch (_) {
+                imgEl.src = 'https://placehold.co/240x300/ffffff/0f172a?text=PHAN+CHI+VY+5K';
+            }
+        }
+
+        function initThreeBackground() {
+            try {
+                const canvas = document.getElementById('bg-canvas');
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+                camera.position.z = 12;
+
+                const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+                const particleCount = 420;
+                const positions = new Float32Array(particleCount * 3);
+                for (let i = 0; i < particleCount * 3; i += 3) {
+                    positions[i] = (Math.random() - 0.5) * 28;
+                    positions[i + 1] = (Math.random() - 0.5) * 20;
+                    positions[i + 2] = (Math.random() - 0.5) * 16;
+                }
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                const material = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.08, transparent: true, opacity: 0.5 });
+                const points = new THREE.Points(geometry, material);
+                scene.add(points);
+
+                window.addEventListener('resize', () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+
+                const clock = new THREE.Clock();
+                function renderFrame() {
+                    requestAnimationFrame(renderFrame);
+                    const elapsed = clock.getElapsedTime();
+                    points.rotation.y = elapsed * 0.025;
+                    points.rotation.x = Math.sin(elapsed * 0.2) * 0.04;
+                    renderer.render(scene, camera);
+                }
+                renderFrame();
+            } catch (_) {}
+        }
+
+        function nowLabel() {
+            const d = new Date();
+            return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.toLocaleDateString('vi-VN')}`;
+        }
+
+        function nowLabelFromTs(ts) {
+            const d = new Date(Number(ts || Date.now()));
+            return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.toLocaleDateString('vi-VN')}`;
+        }
+
+        function formatRemainingVaultTime(expiresAtTs) {
+            const diff = Math.max(0, Number(expiresAtTs || 0) - Date.now());
+            const totalMinutes = Math.floor(diff / (60 * 1000));
+            const days = Math.floor(totalMinutes / (60 * 24));
+            const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+            const mins = totalMinutes % 60;
+            if (days > 0) return `Còn ${days}n ${hours}g`;
+            if (hours > 0) return `Còn ${hours}g ${mins}p`;
+            return `Còn ${mins}p`;
+        }
+
+        function formatVND(amount) {
+            return Number(amount || 0).toLocaleString('vi-VN') + ' đ';
+        }
+
+        // Chuẩn hóa danh sách gói: keys là mảng mã key có sẵn; stock luôn khớp chính xác keys.length (không tự sinh key)
+        function normalizePackages(rawList) {
+            const base = JSON.parse(JSON.stringify(DEFAULT_PACKAGES));
+            if (!Array.isArray(rawList)) {
+                return base.map(p => ({ ...p, stock: p.keys.length }));
+            }
+            return base.map(pkg => {
+                const matched = rawList.find(item => item && item.id === pkg.id);
+                const rawKeys = Array.isArray(matched?.keys) ? matched.keys : pkg.keys;
+                const cleanKeys = rawKeys
+                    .map(k => String(k || '').trim())
+                    .filter(Boolean);
+                return {
+                    ...pkg,
+                    price: PACKAGE_PRICES[pkg.id],
+                    keys: cleanKeys,
+                    stock: cleanKeys.length
+                };
+            });
+        }
+
+        function getPackages() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.PACKAGES);
+                const list = normalizePackages(raw ? JSON.parse(raw) : DEFAULT_PACKAGES);
+                localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(list));
+                return list;
+            } catch (_) {
+                return normalizePackages(DEFAULT_PACKAGES);
+            }
+        }
+
+        function savePackages(list, skipSync = false) {
+            localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(normalizePackages(list)));
+            if (!skipSync) scheduleWorkerSync();
+        }
+
+        // Tách chuỗi key nhập thủ công theo dòng hoặc dấu phẩy (tuyệt đối không tự tạo/sinh key)
+        function parseManualKeyLines(rawText) {
+            if (!rawText) return [];
+            return String(rawText)
+                .split(/[\r\n,]+/)
+                .map(s => s.trim())
+                .filter(Boolean);
+        }
+
+        function updateManualKeyPreview() {
+            const ta = document.getElementById('manual-keys-textarea');
+            const preview = document.getElementById('manual-key-parsed-preview');
+            if (!ta || !preview) return;
+            const parsed = parseManualKeyLines(ta.value);
+            preview.textContent = `Đã nhận diện: ${parsed.length} key hợp lệ (khớp số key thêm = ${parsed.length})`;
+        }
+
+        // Loại bỏ key đã quá 5 ngày trong kho key của thành viên (Tài khoản KHÔNG bao giờ tự xóa)
+        function pruneExpiredKeys(userRecord) {
+            if (!userRecord || !Array.isArray(userRecord.keys)) return false;
+            const now = Date.now();
+            const originalLen = userRecord.keys.length;
+            userRecord.keys = userRecord.keys.filter(item => {
+                const expiresAt = Number(item.vaultExpiresAtTs || ((item.createdAtTs || now) + KEY_STORAGE_MS));
+                return expiresAt > now;
+            });
+            return userRecord.keys.length !== originalLen;
+        }
+
+        function seedUsers() {
+            const now = Date.now();
+            return {
+                'khach01': {
+                    username: 'khach01',
+                    password: '123456',
+                    balance: 20000,
+                    totalSpent: 600,
+                    totalDeposited: 20600,
+                    createdAt: nowLabel(),
+                    logs: [
+                        { time: nowLabel(), delta: 20600, after: 20600, note: 'Nạp số dư ban đầu qua ZaloPay 0974165214 (min 5.000đ)' },
+                        { time: nowLabel(), delta: -600, after: 20000, note: 'Lấy Key 1 Giờ (600đ)' }
+                    ],
+                    keys: [
+                        {
+                            orderNo: 101,
+                            code: 'VHN-1H-SEED01',
+                            pkgId: '1h',
+                            pkgLabel: '1 Giờ',
+                            price: 600,
+                            customerName: 'KHACH LE',
+                            createdAt: nowLabel(),
+                            createdAtTs: now,
+                            vaultExpiresAtTs: now + KEY_STORAGE_MS
+                        }
+                    ]
+                }
+            };
+        }
+
+        function getUsers() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+                const db = raw ? JSON.parse(raw) : seedUsers();
+                let changed = !raw;
+                Object.keys(db).forEach(u => {
+                    db[u].balance = Number(db[u].balance || 0);
+                    db[u].totalSpent = Number(db[u].totalSpent || 0);
+                    db[u].totalDeposited = Number(db[u].totalDeposited || 0);
+                    if (!Array.isArray(db[u].logs)) db[u].logs = [];
+                    if (!Array.isArray(db[u].keys)) db[u].keys = [];
+                    if (pruneExpiredKeys(db[u])) changed = true;
+                });
+                if (changed) {
+                    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(db));
+                }
+                return db;
+            } catch (_) {
+                const fallback = seedUsers();
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(fallback));
+                return fallback;
+            }
+        }
+
+        function saveUsers(db, skipSync = false) {
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(db));
+            if (!skipSync) scheduleWorkerSync();
+        }
+
+        function getSessionUser() {
+            const username = localStorage.getItem(STORAGE_KEYS.SESSION);
+            if (!username) return null;
+            const db = getUsers();
+            return db[username] || null;
+        }
+
+        function setSessionUser(username) {
+            if (username) localStorage.setItem(STORAGE_KEYS.SESSION, username);
+            else localStorage.removeItem(STORAGE_KEYS.SESSION);
+        }
+
+        /* ======================================================================
+           KẾT NỐI & ĐỒNG BỘ CLOUDFLARE WORKER KV (CÓ FALLBACK LOCALSTORAGE)
+           ====================================================================== */
+        function getWorkerEndpoint() {
+            return String(localStorage.getItem(STORAGE_KEYS.WORKER_URL) || '').trim().replace(/\/+$/, '');
+        }
+
+        function isAutoWorkerSyncEnabled() {
+            return localStorage.getItem(STORAGE_KEYS.WORKER_AUTO_SYNC) === '1';
+        }
+
+        function updateSyncBadges(labelText, tone = 'neutral') {
+            const headerPill = document.getElementById('sync-status-pill');
+            const kvBadge = document.getElementById('worker-kv-badge');
+            const toneMap = {
+                neutral: 'bg-slate-800 text-slate-300',
+                ok: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/35',
+                warn: 'bg-amber-500/20 text-amber-300 border border-amber-500/35',
+                err: 'bg-rose-500/20 text-rose-300 border border-rose-500/35'
+            };
+            const cls = toneMap[tone] || toneMap.neutral;
+            if (headerPill) {
+                headerPill.className = `px-1.5 py-0.2 rounded font-mono text-[9px] normal-case ${cls}`;
+                headerPill.textContent = labelText;
+            }
+            if (kvBadge) {
+                kvBadge.className = `px-2.5 py-0.5 rounded-full font-mono text-[11px] ${cls}`;
+                kvBadge.textContent = labelText;
+            }
+        }
+
+        function syncWorkerInputsFromStorage() {
+            const urlInput = document.getElementById('worker-endpoint-input');
+            const autoCb = document.getElementById('worker-auto-sync-checkbox');
+            const endpoint = getWorkerEndpoint();
+            if (urlInput) urlInput.value = endpoint;
+            if (autoCb) autoCb.checked = isAutoWorkerSyncEnabled();
+            if (!endpoint) {
+                updateSyncBadges('LocalStorage', 'neutral');
+            } else {
+                updateSyncBadges('Worker sẵn sàng', 'warn');
+            }
+        }
+
+        function saveWorkerEndpointConfig() {
+            const input = document.getElementById('worker-endpoint-input');
+            const rawUrl = String(input ? input.value : '').trim().replace(/\/+$/, '');
+            if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
+                showToast('URL Cloudflare Worker phải bắt đầu bằng https:// hoặc http://', 'error');
+                return;
+            }
+            if (rawUrl) {
+                localStorage.setItem(STORAGE_KEYS.WORKER_URL, rawUrl);
+                updateSyncBadges('Đã lưu URL Worker', 'ok');
+                showToast('Đã lưu địa chỉ Cloudflare Worker!', 'success');
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.WORKER_URL);
+                updateSyncBadges('LocalStorage', 'neutral');
+                showToast('Đã xóa URL Worker, đang dùng localStorage.', 'info');
+            }
+        }
+
+        function toggleAutoWorkerSync(enabled) {
+            localStorage.setItem(STORAGE_KEYS.WORKER_AUTO_SYNC, enabled ? '1' : '0');
+            showToast(
+                enabled ? 'Đã bật tự động đồng bộ lên Worker KV.' : 'Đã tắt tự động đồng bộ nền.',
+                'info'
+            );
+        }
+
+        async function testWorkerHealth() {
+            const endpoint = getWorkerEndpoint();
+            if (!endpoint) {
+                showToast('Vui lòng nhập và lưu URL Cloudflare Worker trước!', 'error');
+                return;
+            }
+            updateSyncBadges('Đang kiểm tra...', 'warn');
+            try {
+                const res = await fetch(`${endpoint}/health`, { method: 'GET' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
+                updateSyncBadges(data.kvBound ? 'KV Online' : 'Worker Online (No KV)', 'ok');
+                showToast(
+                    `Kết nối Worker thành công! ${data.kvBound ? 'Đã gắn KV_STORE_KV.' : 'Chưa gắn binding KV_STORE_KV.'}`,
+                    'success'
+                );
+            } catch (err) {
+                updateSyncBadges('Offline / Lỗi KV', 'err');
+                showToast(`Không kết nối được Worker (dùng localStorage): ${err.message}`, 'error');
+            }
+        }
+
+        function buildSyncPayload() {
+            return {
+                packages: getPackages(),
+                users: getUsers(),
+                syncedFrom: 'vo-hoai-nam-ctv-panel',
+                syncedAt: new Date().toISOString()
+            };
+        }
+
+        async function pushStateToWorker(notifyUser = false) {
+            const endpoint = getWorkerEndpoint();
+            if (!endpoint) {
+                if (notifyUser) showToast('Chưa cấu hình URL Worker — dữ liệu đang lưu trên localStorage.', 'info');
+                return false;
+            }
+            try {
+                const payload = buildSyncPayload();
+                const res = await fetch(`${endpoint}/api/state`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: payload })
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json.ok) {
+                    throw new Error(json.error || `HTTP ${res.status}`);
+                }
+                updateSyncBadges('Đã đồng bộ KV', 'ok');
+                if (notifyUser) showToast('Đã đẩy dữ liệu kho key & thành viên lên Cloudflare KV!', 'success');
+                return true;
+            } catch (err) {
+                updateSyncBadges('Fallback Local', 'warn');
+                if (notifyUser) showToast(`Đẩy KV thất bại (đã giữ bản localStorage): ${err.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function pullStateFromWorker(notifyUser = false) {
+            const endpoint = getWorkerEndpoint();
+            if (!endpoint) {
+                if (notifyUser) showToast('Chưa cấu hình URL Worker — đang đọc dữ liệu localStorage.', 'info');
+                return false;
+            }
+            try {
+                const res = await fetch(`${endpoint}/api/state`, { method: 'GET' });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json.ok || !json.data) {
+                    throw new Error(json.error || `HTTP ${res.status}`);
+                }
+                const remote = json.data;
+                if (Array.isArray(remote.packages) && remote.packages.length > 0) {
+                    savePackages(remote.packages, true);
+                }
+                if (remote.users && typeof remote.users === 'object' && Object.keys(remote.users).length > 0) {
+                    saveUsers(remote.users, true);
+                }
+                updateSyncBadges('Đồng bộ KV OK', 'ok');
+                renderAll();
+                if (isAdminAuthenticated) renderAdminPanel();
+                if (notifyUser) showToast('Đã tải dữ liệu mới nhất từ Cloudflare KV!', 'success');
+                return true;
+            } catch (err) {
+                updateSyncBadges('Fallback Local', 'warn');
+                if (notifyUser) showToast(`Không tải được từ KV (đang dùng localStorage): ${err.message}`, 'error');
+                return false;
+            }
+        }
+
+        function scheduleWorkerSync() {
+            if (!isAutoWorkerSyncEnabled() || !getWorkerEndpoint()) return;
+            clearTimeout(workerSyncTimer);
+            workerSyncTimer = setTimeout(() => {
+                pushStateToWorker(false);
+            }, 600);
+        }
+
+        function switchMainTab(tabName) {
+            const tabs = ['buy', 'vault', 'deposit', 'history'];
+            tabs.forEach(name => {
+                const panel = document.getElementById(`tab-panel-${name}`);
+                const btn = document.getElementById(`tab-btn-${name}`);
+                if (name === tabName) {
+                    panel.classList.remove('hidden');
+                    btn.className = 'flex-1 min-w-[105px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-600/30';
+                } else {
+                    panel.classList.add('hidden');
+                    btn.className = 'flex-1 min-w-[105px] py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer text-slate-300 hover:bg-white/5';
+                }
+            });
+            if (tabName === 'vault') renderVaultTab();
+            if (tabName === 'history') renderHistoryTab();
+        }
+
+        function renderDurationCards() {
+            const packages = getPackages();
+            const grid = document.getElementById('duration-grid');
+            if (!grid) return;
+
+            if (!packages.some(p => p.id === selectedPkgId)) {
+                selectedPkgId = packages[0].id;
+            }
+
+            grid.innerHTML = packages.map(pkg => {
+                const availCount = pkg.keys.length;
+                const active = pkg.id === selectedPkgId;
+                const empty = availCount <= 0;
+                return `
+                    <button type="button" onclick="chooseDuration('${pkg.id}')" class="tier-tile ${active ? 'is-active' : ''} ${empty ? 'opacity-70' : ''} rounded-xl p-3 text-center cursor-pointer flex flex-col items-center justify-between gap-1">
+                        <span class="font-bold text-xs sm:text-sm ${active ? 'text-white' : 'text-slate-200'}">${pkg.shortLabel}</span>
+                        <span class="font-mono text-xs sm:text-sm font-extrabold ${active ? 'text-sky-300' : 'text-sky-400'}">${pkg.price.toLocaleString('vi-VN')} đ</span>
+                        <span class="text-[10px] font-mono font-bold ${empty ? 'text-rose-400' : 'text-emerald-400'}">
+                            ${empty ? 'Hết kho (0)' : `Kho: ${availCount}`}
+                        </span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function chooseDuration(pkgId) {
+            selectedPkgId = pkgId;
+            renderDurationCards();
+            updateBuySummary();
+        }
+
+        function updateBuySummary() {
+            const packages = getPackages();
+            const pkg = packages.find(p => p.id === selectedPkgId) || packages[0];
+            const availStock = pkg.keys.length;
+            const qty = Math.max(1, parseInt(document.getElementById('buy-qty-input')?.value, 10) || 1);
+            const totalCost = pkg.price * qty;
+            const user = getSessionUser();
+            const balance = user ? Number(user.balance || 0) : 0;
+            const shortage = Math.max(0, totalCost - balance);
+
+            document.getElementById('summary-qty-text').textContent = qty;
+            document.getElementById('summary-pkg-text').textContent = `${pkg.shortLabel} (${pkg.price.toLocaleString('vi-VN')}đ/key)`;
+            document.getElementById('summary-stock-text').textContent = availStock;
+            document.getElementById('summary-total-price').textContent = formatVND(totalCost);
+            document.getElementById('summary-user-balance').textContent = formatVND(balance);
+
+            const shortageEl = document.getElementById('summary-shortage-badge');
+            const btnTextEl = document.getElementById('main-purchase-btn-text');
+
+            if (!user) {
+                shortageEl.className = 'text-amber-300 font-bold';
+                shortageEl.textContent = 'Cần đăng nhập để lấy key';
+                btnTextEl.textContent = 'Đăng Nhập / Tạo TK Để Lấy Key';
+            } else if (availStock <= 0) {
+                shortageEl.className = 'text-rose-400 font-bold';
+                shortageEl.textContent = 'Kho Admin hết key';
+                btnTextEl.textContent = 'Kho Gói Này Đã Hết Key';
+            } else if (availStock < qty) {
+                shortageEl.className = 'text-rose-400 font-bold';
+                shortageEl.textContent = `Kho chỉ còn ${availStock} key`;
+                btnTextEl.textContent = `Giảm Số Lượng (Kho còn ${availStock})`;
+            } else if (balance < totalCost) {
+                shortageEl.className = 'text-rose-400 font-bold';
+                shortageEl.textContent = `Không đủ số dư • Thiếu ${formatVND(shortage)}`;
+                btnTextEl.textContent = `Không Đủ Số Dư (Thiếu ${formatVND(shortage)})`;
+            } else {
+                shortageEl.className = 'text-emerald-400 font-bold';
+                shortageEl.textContent = 'Đủ số dư & còn kho';
+                btnTextEl.textContent = `Lấy ${qty} Key • Trừ ${formatVND(totalCost)}`;
+            }
+        }
+
+        // Chỉ xuất mã key có sẵn trong kho thủ công của Admin, tuyệt đối không tự tạo key mới
+        function handleBuyKeysFromPanel() {
+            const user = getSessionUser();
+            if (!user) {
+                openAuthModal('register');
+                showToast('Vui lòng tạo tài khoản hoặc đăng nhập trước khi lấy Key!', 'info');
+                return;
+            }
+
+            const packages = getPackages();
+            const pkgIndex = packages.findIndex(p => p.id === selectedPkgId);
+            const pkg = packages[pkgIndex];
+            if (!pkg) return;
+
+            const availStock = pkg.keys.length;
+            const qty = Math.max(1, parseInt(document.getElementById('buy-qty-input').value, 10) || 1);
+            const customerName = (document.getElementById('buy-customer-input').value || user.username).trim().toUpperCase();
+            const totalCost = pkg.price * qty;
+
+            if (availStock <= 0) {
+                showToast(`Kho ${pkg.fullName} đã hết key (0 key), không thể lấy key!`, 'error');
+                return;
+            }
+            if (availStock < qty) {
+                showToast(`Kho ${pkg.fullName} chỉ còn ${availStock} key có sẵn!`, 'error');
+                return;
+            }
+
+            const db = getUsers();
+            const targetUser = db[user.username];
+            if (!targetUser) return;
+
+            const currentBal = Number(targetUser.balance || 0);
+            if (currentBal < totalCost) {
+                const missing = totalCost - currentBal;
+                showToast(
+                    `Số dư không đủ (${formatVND(currentBal)} / ${formatVND(totalCost)}). Thiếu ${formatVND(missing)} — nạp tối thiểu 5.000đ qua QR PHAN CHI VY!`,
+                    'error'
+                );
+                return;
+            }
+
+            const issuedCodes = pkg.keys.splice(0, qty);
+            if (issuedCodes.length !== qty) {
+                showToast('Số key khả dụng trong kho không đủ theo yêu cầu!', 'error');
+                return;
+            }
+            pkg.stock = pkg.keys.length;
+
+            targetUser.balance = currentBal - totalCost;
+            targetUser.totalSpent = Number(targetUser.totalSpent || 0) + totalCost;
+
+            const now = Date.now();
+            const timeStr = nowLabel();
+            const baseOrder = 200 + targetUser.keys.length + Math.floor(Math.random() * 60);
+            const created = [];
+
+            issuedCodes.forEach((code, i) => {
+                const item = {
+                    orderNo: baseOrder + i,
+                    code,
+                    pkgId: pkg.id,
+                    pkgLabel: pkg.shortLabel,
+                    price: pkg.price,
+                    customerName,
+                    createdAt: timeStr,
+                    createdAtTs: now,
+                    vaultExpiresAtTs: now + KEY_STORAGE_MS
+                };
+                targetUser.keys.unshift(item);
+                created.push(item);
+            });
+
+            targetUser.logs.unshift({
+                time: timeStr,
+                delta: -totalCost,
+                after: targetUser.balance,
+                note: `Lấy ${qty} key ${pkg.shortLabel} (${customerName})`
+            });
+
+            saveUsers(db, true);
+            savePackages(packages, true);
+            scheduleWorkerSync();
+            renderAll();
+            if (isAdminAuthenticated) renderAdminPanel();
+
+            const firstCode = created[0].code;
+            copyText(firstCode, `Đã lấy ${qty} key & sao chép ${firstCode} (lưu 5 ngày)`);
+            showToast(`Lấy thành công ${qty} key ${pkg.shortLabel}, trừ ${formatVND(totalCost)}!`, 'success');
+        }
+
+        function renderOrderCard(k) {
+            const expiresTs = k.vaultExpiresAtTs || ((k.createdAtTs || Date.now()) + KEY_STORAGE_MS);
+            const expiresStr = nowLabelFromTs(expiresTs);
+            const remainText = formatRemainingVaultTime(expiresTs);
+            return `
+                <div class="panel-card rounded-2xl p-4 space-y-2.5 border border-white/10">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-extrabold text-xs sm:text-sm text-white">#${k.orderNo} • ${k.pkgLabel}</span>
+                        <span class="font-mono font-extrabold text-xs sm:text-sm text-sky-400">${Number(k.price || 0).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                        <span>1 key • Khách: <strong class="text-slate-200">${k.customerName || 'KHACH'}</strong></span>
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold">Lưu 5 ngày • ${remainText}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 flex flex-wrap justify-between gap-1">
+                        <span>Lúc: ${k.createdAt}</span>
+                        <span>Hết lưu kho 5 ngày: <span class="font-mono text-slate-400">${expiresStr}</span></span>
+                    </div>
+                    <div class="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                        <code class="font-mono font-bold text-xs sm:text-sm text-slate-100 select-all truncate">${k.code}</code>
+                        <button type="button" onclick="copyText('${k.code}', 'Đã sao chép ${k.code}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white font-bold text-xs cursor-pointer transition-colors shrink-0">
+                            Copy key
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRecentOrders() {
+            const box = document.getElementById('recent-orders-list');
+            const user = getSessionUser();
+            if (!user) {
+                box.innerHTML = `<div class="panel-card rounded-2xl p-5 text-center text-xs text-slate-400">Đăng nhập hoặc tạo tài khoản để xem key đã lấy (lưu 5 ngày).</div>`;
+                return;
+            }
+            const recent = (user.keys || []).slice(0, 3);
+            if (!recent.length) {
+                box.innerHTML = `<div class="panel-card rounded-2xl p-5 text-center text-xs text-slate-400">Chưa có key nào trong kho 5 ngày.</div>`;
+                return;
+            }
+            box.innerHTML = recent.map(renderOrderCard).join('');
+        }
+
+        function renderVaultTab() {
+            const user = getSessionUser();
+            const listEl = document.getElementById('vault-keys-list');
+            const badgeEl = document.getElementById('vault-total-badge');
+
+            if (!user) {
+                badgeEl.textContent = '0 key';
+                listEl.innerHTML = `
+                    <div class="p-6 rounded-xl bg-slate-950/75 border border-white/10 text-center space-y-3">
+                        <p class="text-xs sm:text-sm text-slate-300">Đăng nhập để xem kho key lưu trữ trong 5 ngày.</p>
+                        <button type="button" onclick="openAuthModal('login')" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs cursor-pointer">
+                            Đăng Nhập Ngay
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const q = (document.getElementById('vault-search-input')?.value || '').trim().toLowerCase();
+            const pkgFilter = document.getElementById('vault-filter-select')?.value || 'ALL';
+            const filtered = (user.keys || []).filter(k => {
+                const matchPkg = pkgFilter === 'ALL' || k.pkgId === pkgFilter;
+                const matchQuery = !q || String(k.code).toLowerCase().includes(q) || String(k.customerName || '').toLowerCase().includes(q);
+                return matchPkg && matchQuery;
+            });
+
+            badgeEl.textContent = `${filtered.length} key`;
+            if (!filtered.length) {
+                listEl.innerHTML = `<div class="p-6 rounded-xl bg-slate-950/70 border border-white/10 text-center text-xs text-slate-400">Không có key nào phù hợp.</div>`;
+                return;
+            }
+            listEl.innerHTML = filtered.map(renderOrderCard).join('');
+        }
+
+        function renderHistoryTab() {
+            const user = getSessionUser();
+            const listEl = document.getElementById('history-logs-list');
+            if (!user) {
+                listEl.innerHTML = `<div class="p-5 rounded-xl bg-slate-950/70 border border-white/10 text-center text-xs text-slate-400">Đăng nhập để xem lịch sử biến động số dư.</div>`;
+                return;
+            }
+            const logs = user.logs || [];
+            if (!logs.length) {
+                listEl.innerHTML = `<div class="p-5 rounded-xl bg-slate-950/70 border border-white/10 text-center text-xs text-slate-400">Chưa có lịch sử giao dịch.</div>`;
+                return;
+            }
+            listEl.innerHTML = logs.map(item => {
+                const val = Number(item.delta || 0);
+                const sign = val > 0 ? '+' : '';
+                const color = val >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                return `
+                    <div class="p-3.5 rounded-xl bg-slate-950/85 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                        <div>
+                            <span class="font-mono font-bold ${color}">${sign}${val.toLocaleString('vi-VN')} đ</span>
+                            <span class="text-slate-200 ml-1.5">${item.note}</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-mono text-amber-300 font-bold">SD: ${Number(item.after || 0).toLocaleString('vi-VN')} đ</div>
+                            <div class="text-[10px] text-slate-500">${item.time}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderStatsAndHeader() {
+            const user = getSessionUser();
+            const packages = getPackages();
+            const totalStock = packages.reduce((sum, p) => sum + Number(p.keys.length || 0), 0);
+            document.getElementById('total-stock-badge').textContent = `${totalStock} key kho`;
+
+            const rightControls = document.getElementById('header-right-controls');
+            const buyPill = document.getElementById('buy-card-account-pill');
+
+            if (!user) {
+                document.getElementById('stat-balance').textContent = '0 đ';
+                document.getElementById('stat-spent').textContent = '0 đ';
+                document.getElementById('stat-keys-count').textContent = '0';
+                document.getElementById('stat-deposited').textContent = '0 đ';
+                document.getElementById('deposit-memo-code').textContent = `NAP VHN (MIN ${MIN_DEPOSIT_VND.toLocaleString('vi-VN')}Đ)`;
+
+                rightControls.innerHTML = `
+                    <button type="button" onclick="openAuthModal('register')" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer">
+                        Đăng nhập / Tạo TK
+                    </button>
+                    <button type="button" onclick="openAdminModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-amber-300 font-bold text-xs cursor-pointer">
+                        Admin
+                    </button>
+                `;
+                if (buyPill) buyPill.textContent = 'Đăng nhập / Tạo TK';
+            } else {
+                document.getElementById('stat-balance').textContent = formatVND(user.balance);
+                document.getElementById('stat-spent').textContent = formatVND(user.totalSpent);
+                document.getElementById('stat-keys-count').textContent = String((user.keys || []).length);
+                document.getElementById('stat-deposited').textContent = formatVND(user.totalDeposited);
+                document.getElementById('deposit-memo-code').textContent = `NAP ${user.username.toUpperCase()}`;
+
+                rightControls.innerHTML = `
+                    <span class="hidden sm:inline-block px-2.5 py-1 rounded-xl bg-slate-900 border border-white/10 text-xs font-bold text-sky-300">
+                        @${user.username}
+                    </span>
+                    <button type="button" onclick="logoutMember()" class="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/30 text-rose-200 font-bold text-xs cursor-pointer">
+                        Đăng xuất
+                    </button>
+                    <button type="button" onclick="openAdminModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-amber-300 font-bold text-xs cursor-pointer">
+                        Admin
+                    </button>
+                `;
+                if (buyPill) buyPill.textContent = `@${user.username}`;
+            }
+        }
+
+        function renderAll() {
+            renderStatsAndHeader();
+            renderDurationCards();
+            updateBuySummary();
+            renderRecentOrders();
+            renderVaultTab();
+            renderHistoryTab();
+        }
+
+        /* ======================================================================
+           ĐĂNG KÝ & ĐĂNG NHẬP THÀNH VIÊN (CHỈ TÊN TK & MẬT KHẨU)
+           ====================================================================== */
+        function openAuthModal(tab = 'register') {
+            switchAuthTab(tab);
+            const modal = document.getElementById('auth-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAuthModal() {
+            const modal = document.getElementById('auth-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function switchAuthTab(tab) {
+            const rTab = document.getElementById('auth-tab-register');
+            const lTab = document.getElementById('auth-tab-login');
+            const rForm = document.getElementById('register-form');
+            const lForm = document.getElementById('login-form');
+            if (tab === 'register') {
+                rTab.className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold bg-blue-600 text-white cursor-pointer';
+                lTab.className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white cursor-pointer';
+                rForm.classList.remove('hidden');
+                lForm.classList.add('hidden');
+            } else {
+                lTab.className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold bg-blue-600 text-white cursor-pointer';
+                rTab.className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-400 hover:text-white cursor-pointer';
+                lForm.classList.remove('hidden');
+                rForm.classList.add('hidden');
+            }
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value.trim().toLowerCase();
+            const password = document.getElementById('reg-password').value.trim();
+
+            if (!username || !password) {
+                showToast('Vui lòng nhập đầy đủ tên tài khoản và mật khẩu!', 'error');
+                return;
+            }
+
+            const db = getUsers();
+            if (db[username]) {
+                showToast(`Tên tài khoản "${username}" đã tồn tại!`, 'error');
+                return;
+            }
+
+            db[username] = {
+                username,
+                password,
+                balance: 0,
+                totalSpent: 0,
+                totalDeposited: 0,
+                createdAt: nowLabel(),
+                logs: [{ time: nowLabel(), delta: 0, after: 0, note: 'Tạo tài khoản (không tự xóa khi chưa có lệnh xóa từ Admin)' }],
+                keys: []
+            };
+            saveUsers(db);
+            setSessionUser(username);
+
+            document.getElementById('reg-username').value = '';
+            document.getElementById('reg-password').value = '';
+            closeAuthModal();
+            renderAll();
+            if (isAdminAuthenticated) renderAdminPanel();
+            showToast(`Tạo tài khoản "${username}" thành công!`, 'success');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value.trim();
+
+            const db = getUsers();
+            const user = db[username];
+            if (!user || String(user.password) !== password) {
+                showToast('Sai tên tài khoản hoặc mật khẩu!', 'error');
+                return;
+            }
+
+            setSessionUser(username);
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            closeAuthModal();
+            renderAll();
+            showToast(`Đăng nhập thành công tài khoản @${username}!`, 'success');
+        }
+
+        function logoutMember() {
+            setSessionUser(null);
+            renderAll();
+            showToast('Đã đăng xuất tài khoản.', 'info');
+        }
+
+        function copyDepositMemo() {
+            const text = document.getElementById('deposit-memo-code').textContent;
+            copyText(text, 'Đã sao chép nội dung nạp tiền!');
+        }
+
+        /* ======================================================================
+           QUẢN TRỊ ADMIN (KHÔNG LỘ TÀI KHOẢN / MẬT KHẨU TRÊN GIAO DIỆN)
+           ====================================================================== */
+        function handleBrandTap() {
+            brandTapCount += 1;
+            clearTimeout(brandTapTimer);
+            if (brandTapCount >= 5) {
+                brandTapCount = 0;
+                openAdminModal();
+                return;
+            }
+            brandTapTimer = setTimeout(() => {
+                brandTapCount = 0;
+            }, 1500);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                openAdminModal();
+            }
+        });
+
+        function openAdminModal() {
+            const uInput = document.getElementById('admin-user-input');
+            const pInput = document.getElementById('admin-pass-input');
+            if (uInput) uInput.value = '';
+            if (pInput) {
+                pInput.value = '';
+                pInput.type = 'password';
+            }
+            const icon = document.getElementById('toggle-admin-pass-icon');
+            if (icon) icon.className = 'fa-regular fa-eye text-xs';
+
+            if (!isAdminAuthenticated) {
+                document.getElementById('admin-login-view').classList.remove('hidden');
+                document.getElementById('admin-dashboard-view').classList.add('hidden');
+            } else {
+                document.getElementById('admin-login-view').classList.add('hidden');
+                document.getElementById('admin-dashboard-view').classList.remove('hidden');
+                renderAdminPanel();
+            }
+
+            const modal = document.getElementById('admin-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function toggleAdminPasswordVisibility() {
+            const pInput = document.getElementById('admin-pass-input');
+            const icon = document.getElementById('toggle-admin-pass-icon');
+            if (!pInput) return;
+            const show = pInput.type === 'password';
+            pInput.type = show ? 'text' : 'password';
+            if (icon) {
+                icon.className = show ? 'fa-regular fa-eye-slash text-xs text-amber-300' : 'fa-regular fa-eye text-xs';
+            }
+        }
+
+        function handleAdminLogin(e) {
+            if (e && typeof e.preventDefault === 'function') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const userEl = document.getElementById('admin-user-input');
+            const passEl = document.getElementById('admin-pass-input');
+            const { user, pass } = normalizeAdminInput(userEl ? userEl.value : '', passEl ? passEl.value : '');
+
+            const userValid = user.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+            const passValid = pass === ADMIN_PASSWORD;
+
+            if (!userValid || !passValid) {
+                showToast('Tài khoản hoặc mật khẩu quản trị không đúng.', 'error');
+                return false;
+            }
+
+            if (userEl) userEl.value = '';
+            if (passEl) passEl.value = '';
+            isAdminAuthenticated = true;
+            document.getElementById('admin-login-view').classList.add('hidden');
+            document.getElementById('admin-dashboard-view').classList.remove('hidden');
+            renderAdminPanel();
+            showToast('Đăng nhập quản trị thành công!', 'success');
+            return true;
+        }
+
+        function logoutAdminSession() {
+            isAdminAuthenticated = false;
+            activeAdminInspectUser = null;
+            document.getElementById('admin-dashboard-view').classList.add('hidden');
+            document.getElementById('admin-login-view').classList.remove('hidden');
+            showToast('Đã khóa phiên quản trị.', 'info');
+        }
+
+        function exportAdminSnapshot() {
+            try {
+                const payload = {
+                    exportedAt: new Date().toISOString(),
+                    packages: getPackages(),
+                    users: getUsers()
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `vhn-ctv-backup-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('Đã xuất file sao lưu dữ liệu JSON!', 'success');
+            } catch (_) {
+                showToast('Không thể xuất file sao lưu trên trình duyệt này.', 'error');
+            }
+        }
+
+        function resetAdminDefaultData() {
+            const freshPackages = normalizePackages(DEFAULT_PACKAGES);
+            const freshUsers = seedUsers();
+            savePackages(freshPackages, true);
+            saveUsers(freshUsers, true);
+            scheduleWorkerSync();
+            setSessionUser(null);
+            activeAdminInspectUser = null;
+            revealedMemberPasswords = {};
+            renderAll();
+            renderAdminPanel();
+            showToast('Đã khôi phục kho key & danh sách thành viên mặc định.', 'info');
+        }
+
+        function toggleMemberPasswordVisibility(username) {
+            revealedMemberPasswords[username] = !revealedMemberPasswords[username];
+            renderAdminMembersTable();
+            if (activeAdminInspectUser === username) {
+                renderAdminMemberDetail();
+            }
+        }
+
+        function renderAdminPanel() {
+            renderAdminStockGrid();
+            populateAdminUserSelects();
+            updateManualKeyPreview();
+            renderAdminDepositsAudit();
+            renderAdminMembersTable();
+            renderAdminMemberDetail();
+            syncWorkerInputsFromStorage();
+        }
+
+        function renderAdminStockGrid() {
+            const packages = getPackages();
+            const grid = document.getElementById('admin-stock-grid');
+            grid.innerHTML = packages.map(p => {
+                const count = p.keys.length;
+                return `
+                    <div class="p-3 rounded-xl bg-slate-900 border border-white/10 space-y-2">
+                        <div class="flex items-center justify-between text-xs font-bold">
+                            <span class="text-white">${p.shortLabel}</span>
+                            <span class="font-mono text-sky-300">${p.price.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-1 pt-1">
+                            <span class="text-xs font-mono font-bold ${count > 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                                Khả dụng: ${count} key
+                            </span>
+                            <button type="button" onclick="focusManualKeyPkg('${p.id}')" class="px-2 py-1 rounded bg-amber-400/20 hover:bg-amber-400/35 text-amber-300 font-bold text-[11px] cursor-pointer">
+                                + Thêm key
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function focusManualKeyPkg(pkgId) {
+            const sel = document.getElementById('manual-key-pkg-select');
+            const ta = document.getElementById('manual-keys-textarea');
+            if (sel) sel.value = pkgId;
+            if (ta) ta.focus();
+        }
+
+        function toggleManualTargetMember() {
+            const mode = document.getElementById('manual-key-target-mode')?.value;
+            const sel = document.getElementById('manual-key-member-select');
+            if (!sel) return;
+            if (mode === 'MEMBER') sel.classList.remove('hidden');
+            else sel.classList.add('hidden');
+        }
+
+        // Thêm key thủ công: chỉ nhận danh sách key nhập tay, không tự tạo key, và đảm bảo số key tăng thêm khớp đúng số key nhập
+        function handleAdminManualAddKeys(e) {
+            e.preventDefault();
+            const pkgId = document.getElementById('manual-key-pkg-select').value;
+            const mode = document.getElementById('manual-key-target-mode').value;
+            const memberName = document.getElementById('manual-key-member-select').value;
+            const rawText = document.getElementById('manual-keys-textarea').value;
+            const incomingKeys = parseManualKeyLines(rawText);
+
+            if (incomingKeys.length === 0) {
+                showToast('Vui lòng nhập ít nhất 1 mã key có sẵn (hệ thống không tự tạo key)!', 'error');
+                return;
+            }
+
+            const addedCount = incomingKeys.length;
+            const pkgs = getPackages();
+            const pkgIndex = pkgs.findIndex(p => p.id === pkgId);
+            const pkg = pkgs[pkgIndex];
+            if (!pkg) return;
+
+            if (mode === 'STOCK') {
+                const beforeCount = pkg.keys.length;
+                pkg.keys.push(...incomingKeys);
+                pkg.stock = pkg.keys.length;
+                const afterCount = pkg.keys.length;
+
+                if (afterCount - beforeCount !== addedCount) {
+                    showToast('Lỗi đối chiếu số lượng key khả dụng sau khi thêm!', 'error');
+                    return;
+                }
+
+                savePackages(pkgs);
+                document.getElementById('manual-keys-textarea').value = '';
+                updateManualKeyPreview();
+                renderAll();
+                renderAdminStockGrid();
+                showToast(
+                    `Đã thêm ${addedCount} key ${pkg.shortLabel} • Khả dụng hiện tại: ${afterCount} key (khớp ${addedCount} key đã thêm).`,
+                    'success'
+                );
+            } else {
+                const db = getUsers();
+                const targetUser = db[memberName];
+                if (!targetUser) {
+                    showToast('Vui lòng chọn tài khoản thành viên nhận key!', 'error');
+                    return;
+                }
+
+                const now = Date.now();
+                const timeStr = nowLabel();
+                const baseOrder = 300 + targetUser.keys.length + Math.floor(Math.random() * 50);
+
+                incomingKeys.forEach((code, idx) => {
+                    targetUser.keys.unshift({
+                        orderNo: baseOrder + idx,
+                        code,
+                        pkgId: pkg.id,
+                        pkgLabel: pkg.shortLabel,
+                        price: 0,
+                        customerName: memberName.toUpperCase(),
+                        createdAt: timeStr,
+                        createdAtTs: now,
+                        vaultExpiresAtTs: now + KEY_STORAGE_MS
+                    });
+                });
+
+                saveUsers(db);
+                document.getElementById('manual-keys-textarea').value = '';
+                updateManualKeyPreview();
+                renderAll();
+                renderAdminMembersTable();
+                renderAdminMemberDetail();
+                showToast(`Đã cấp ${addedCount} key thủ công (lưu 5 ngày) cho @${memberName}!`, 'success');
+            }
+        }
+
+        function populateAdminUserSelects() {
+            const db = getUsers();
+            const names = Object.keys(db);
+            const balSel = document.getElementById('bal-member-select');
+            const injSel = document.getElementById('manual-key-member-select');
+
+            const optionsHtml = names.length
+                ? names.map(u => `<option value="${u}">@${u} (${Number(db[u].balance || 0).toLocaleString('vi-VN')}đ)</option>`).join('')
+                : `<option value="">Chưa có thành viên</option>`;
+
+            if (balSel) {
+                const prev = balSel.value;
+                balSel.innerHTML = optionsHtml;
+                if (prev && db[prev]) balSel.value = prev;
+            }
+            if (injSel) {
+                const prev = injSel.value;
+                injSel.innerHTML = optionsHtml;
+                if (prev && db[prev]) injSel.value = prev;
+            }
+        }
+
+        function quickBalDelta(amount) {
+            const el = document.getElementById('bal-delta-input');
+            el.value = (parseInt(el.value, 10) || 0) + amount;
+        }
+
+        function handleAdminAdjustBalance(e) {
+            e.preventDefault();
+            const username = document.getElementById('bal-member-select').value;
+            const delta = parseInt(document.getElementById('bal-delta-input').value, 10);
+            const note = (document.getElementById('bal-note-input').value || '').trim();
+
+            if (!username) {
+                showToast('Vui lòng chọn tài khoản thành viên!', 'error');
+                return;
+            }
+            if (isNaN(delta) || delta === 0) {
+                showToast('Vui lòng nhập số tiền cộng hoặc trừ khác 0!', 'error');
+                return;
+            }
+            if (delta > 0 && delta < MIN_DEPOSIT_VND) {
+                showToast(`Mức nạp tối thiểu là ${MIN_DEPOSIT_VND.toLocaleString('vi-VN')}đ (5k)!`, 'error');
+                return;
+            }
+
+            const db = getUsers();
+            const target = db[username];
+            if (!target) return;
+
+            const nextBalance = Number(target.balance || 0) + delta;
+            if (nextBalance < 0) {
+                showToast(`Không thể trừ vượt quá số dư hiện tại (${formatVND(target.balance)})!`, 'error');
+                return;
+            }
+
+            target.balance = nextBalance;
+            if (delta > 0) {
+                target.totalDeposited = Number(target.totalDeposited || 0) + delta;
+            }
+            target.logs.unshift({
+                time: nowLabel(),
+                delta,
+                after: nextBalance,
+                note: note || (delta > 0 ? 'Admin duyệt nạp số dư (ZaloPay 0974165214)' : 'Admin trừ số dư')
+            });
+
+            saveUsers(db);
+            document.getElementById('bal-delta-input').value = '';
+            document.getElementById('bal-note-input').value = '';
+            renderAll();
+            populateAdminUserSelects();
+            renderAdminDepositsAudit();
+            renderAdminMembersTable();
+            renderAdminMemberDetail();
+
+            const sign = delta > 0 ? '+' : '';
+            showToast(`Đã cập nhật @${username} (${sign}${delta.toLocaleString('vi-VN')}đ) → ${formatVND(nextBalance)}`, 'success');
+        }
+
+        // Tổng hợp và kiểm tra toàn bộ giao dịch nạp tiền (delta > 0) trên mọi tài khoản
+        function renderAdminDepositsAudit() {
+            const tbody = document.getElementById('admin-deposits-tbody');
+            const badge = document.getElementById('admin-total-deposits-badge');
+            if (!tbody) return;
+
+            const q = (document.getElementById('admin-deposit-search')?.value || '').trim().toLowerCase();
+            const minFilter = Math.max(0, parseInt(document.getElementById('admin-deposit-min-filter')?.value, 10) || 0);
+
+            const db = getUsers();
+            const depositRows = [];
+
+            Object.values(db).forEach(u => {
+                (u.logs || []).forEach(entry => {
+                    const amount = Number(entry.delta || 0);
+                    if (amount > 0) {
+                        depositRows.push({
+                            time: entry.time || '',
+                            username: u.username,
+                            amount,
+                            after: Number(entry.after || 0),
+                            note: entry.note || 'Nạp số dư'
+                        });
+                    }
+                });
+            });
+
+            const filtered = depositRows.filter(row => {
+                const matchText = !q ||
+                    row.username.toLowerCase().includes(q) ||
+                    row.note.toLowerCase().includes(q) ||
+                    row.time.toLowerCase().includes(q);
+                const matchMin = row.amount >= minFilter;
+                return matchText && matchMin;
+            });
+
+            const totalFiltered = filtered.reduce((sum, r) => sum + r.amount, 0);
+            if (badge) {
+                badge.textContent = `Tổng nạp: ${formatVND(totalFiltered)} (${filtered.length} lần)`;
+            }
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-5 text-center text-slate-400">Chưa có giao dịch nạp tiền nào khớp bộ lọc.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(r => `
+                <tr class="hover:bg-white/5">
+                    <td class="py-2 px-2 text-slate-400 whitespace-nowrap">${r.time}</td>
+                    <td class="py-2 px-2 font-bold text-sky-300">@${r.username}</td>
+                    <td class="py-2 px-2 font-mono font-bold text-emerald-400 whitespace-nowrap">+${r.amount.toLocaleString('vi-VN')} đ</td>
+                    <td class="py-2 px-2 font-mono text-amber-300 whitespace-nowrap">${r.after.toLocaleString('vi-VN')} đ</td>
+                    <td class="py-2 px-2 text-slate-200">${r.note}</td>
+                </tr>
+            `).join('');
+        }
+
+        function handleAdminCreateMember(e) {
+            e.preventDefault();
+            const uEl = document.getElementById('admin-create-username');
+            const pEl = document.getElementById('admin-create-password');
+            const bEl = document.getElementById('admin-create-balance');
+
+            const username = uEl.value.trim().toLowerCase();
+            const password = pEl.value.trim();
+            const initBal = Math.max(0, parseInt(bEl.value, 10) || 0);
+
+            if (!username || !password) {
+                showToast('Vui lòng nhập tên tài khoản và mật khẩu!', 'error');
+                return;
+            }
+            if (initBal > 0 && initBal < MIN_DEPOSIT_VND) {
+                showToast(`Số dư nạp ban đầu tối thiểu là ${MIN_DEPOSIT_VND.toLocaleString('vi-VN')}đ (5k)!`, 'error');
+                return;
+            }
+
+            const db = getUsers();
+            if (db[username]) {
+                showToast(`Tài khoản "${username}" đã tồn tại!`, 'error');
+                return;
+            }
+
+            db[username] = {
+                username,
+                password,
+                balance: initBal,
+                totalSpent: 0,
+                totalDeposited: initBal,
+                createdAt: nowLabel(),
+                logs: [{
+                    time: nowLabel(),
+                    delta: initBal,
+                    after: initBal,
+                    note: initBal > 0 ? 'Admin tạo tài khoản & nạp số dư ban đầu' : 'Admin tạo tài khoản'
+                }],
+                keys: []
+            };
+            saveUsers(db);
+
+            uEl.value = '';
+            pEl.value = '';
+            bEl.value = '0';
+            renderAll();
+            populateAdminUserSelects();
+            renderAdminDepositsAudit();
+            renderAdminMembersTable();
+            showToast(`Admin đã tạo tài khoản @${username}!`, 'success');
+        }
+
+        function renderAdminMembersTable() {
+            const db = getUsers();
+            const q = (document.getElementById('admin-search-member')?.value || '').trim().toLowerCase();
+            const tbody = document.getElementById('admin-members-tbody');
+            const rows = Object.values(db).filter(u => !q || u.username.toLowerCase().includes(q));
+
+            if (!rows.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-5 text-center text-xs text-slate-400">Không tìm thấy tài khoản nào.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.map(u => `
+                <tr class="hover:bg-white/5">
+                    <td class="py-2.5 px-2 font-bold text-sky-300">@${u.username}</td>
+                    <td class="py-2.5 px-2 font-mono text-xs text-slate-200">
+                        <div class="inline-flex items-center gap-1.5">
+                            <span>${revealedMemberPasswords[u.username] ? u.password : '••••••••'}</span>
+                            <button type="button" onclick="toggleMemberPasswordVisibility('${u.username}')" title="Hiện/ẩn mật khẩu" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 text-[11px] cursor-pointer">
+                                <i class="fa-regular ${revealedMemberPasswords[u.username] ? 'fa-eye-slash text-amber-300' : 'fa-eye'}"></i>
+                            </button>
+                            <button type="button" onclick="copyText('${u.password}', 'Đã sao chép mật khẩu của @${u.username}')" title="Sao chép mật khẩu" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-300 text-[11px] cursor-pointer">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="py-2.5 px-2 font-mono font-bold text-emerald-400">${formatVND(u.balance)}</td>
+                    <td class="py-2.5 px-2"><span class="px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 font-mono text-xs font-bold">${(u.keys || []).length} key</span></td>
+                    <td class="py-2.5 px-2 text-right space-x-1 whitespace-nowrap">
+                        <button type="button" onclick="inspectMember('${u.username}')" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500 text-sky-200 hover:text-slate-950 font-bold text-xs cursor-pointer">Xem</button>
+                        <button type="button" onclick="deleteMemberByAdmin('${u.username}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-200 hover:text-white font-bold text-xs cursor-pointer">Xóa TK</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function inspectMember(username) {
+            activeAdminInspectUser = username;
+            renderAdminMemberDetail();
+        }
+
+        function renderAdminMemberDetail() {
+            const box = document.getElementById('admin-member-detail');
+            if (!activeAdminInspectUser) {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+            const db = getUsers();
+            const u = db[activeAdminInspectUser];
+            if (!u) {
+                activeAdminInspectUser = null;
+                box.classList.add('hidden');
+                return;
+            }
+            box.classList.remove('hidden');
+            const keyItems = (u.keys || []).length
+                ? u.keys.map(k => `<div class="flex justify-between gap-2 py-1 border-b border-white/5 last:border-0"><code class="font-mono text-amber-300">${k.code}</code><span class="text-slate-300">${k.pkgLabel}</span><span class="text-slate-500">${k.createdAt}</span></div>`).join('')
+                : `<div class="text-slate-500">Chưa có key lưu trữ (5 ngày).</div>`;
+
+            const shownPass = revealedMemberPasswords[u.username] ? u.password : '••••••••';
+
+            box.innerHTML = `
+                <div class="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
+                    <div>
+                        <strong class="text-sky-300">@${u.username}</strong> • Mật khẩu: <code class="font-mono text-white">${shownPass}</code>
+                        <button type="button" onclick="toggleMemberPasswordVisibility('${u.username}')" class="ml-1 px-1.5 py-0.5 rounded bg-white/10 text-amber-300 text-[11px] cursor-pointer">${revealedMemberPasswords[u.username] ? 'Ẩn MK' : 'Hiện MK'}</button>
+                        • Số dư: <strong class="font-mono text-emerald-400">${formatVND(u.balance)}</strong> • Tạo lúc: <span class="text-slate-400">${u.createdAt || ''}</span>
+                    </div>
+                    <button type="button" onclick="activeAdminInspectUser = null; renderAdminMemberDetail();" class="text-slate-400 hover:text-white cursor-pointer">Đóng</button>
+                </div>
+                <div class="space-y-1 max-h-36 overflow-y-auto">${keyItems}</div>
+            `;
+        }
+
+        function deleteMemberByAdmin(username) {
+            const db = getUsers();
+            if (!db[username]) return;
+            delete db[username];
+            saveUsers(db);
+
+            if (getSessionUser()?.username === username) {
+                setSessionUser(null);
+            }
+            if (activeAdminInspectUser === username) {
+                activeAdminInspectUser = null;
+            }
+            renderAll();
+            populateAdminUserSelects();
+            renderAdminDepositsAudit();
+            renderAdminMembersTable();
+            renderAdminMemberDetail();
+            showToast(`Admin đã xóa tài khoản @${username}.`, 'info');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-slate-900/95 border-emerald-500/50 text-emerald-300',
+                error: 'bg-slate-900/95 border-rose-500/50 text-rose-300',
+                info: 'bg-slate-900/95 border-sky-500/50 text-sky-300'
+            };
+            const icons = {
+                success: 'fa-circle-check text-emerald-400',
+                error: 'fa-circle-exclamation text-rose-400',
+                info: 'fa-circle-info text-sky-400'
+            };
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl border backdrop-blur-md shadow-xl flex items-center gap-2.5 text-xs sm:text-sm font-medium transition-all ${styles[type] || styles.info}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} shrink-0"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 250);
+            }, 3500);
+        }
+
+        function copyText(text, successMsg) {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast(successMsg || 'Đã sao chép!', 'success');
+            } catch (_) {
+                showToast('Không thể sao chép tự động.', 'error');
+            }
+        }
+
+        window.onload = function () {
+            initThreeBackground();
+            syncWorkerInputsFromStorage();
+            const manualTa = document.getElementById('manual-keys-textarea');
+            if (manualTa) {
+                manualTa.addEventListener('input', updateManualKeyPreview);
+            }
+            renderAll();
+            if (getWorkerEndpoint() && isAutoWorkerSyncEnabled()) {
+                pullStateFromWorker(false);
+            }
+        };
+    </script>
+</body>
+</html>
